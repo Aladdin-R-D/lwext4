@@ -621,6 +621,9 @@ static int __ext4_trans_start(struct ext4_mountpoint *mp)
 {
 	int r = EOK;
 
+	if (mp == NULL)
+		return EPERM;
+
 	if (mp->fs.jbd_journal && !mp->fs.curr_trans) {
 		struct jbd_journal *journal = mp->fs.jbd_journal;
 		struct jbd_trans *trans;

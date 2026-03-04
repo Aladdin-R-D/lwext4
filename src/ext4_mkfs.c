@@ -148,6 +148,9 @@ static bool has_superblock(struct ext4_mkfs_info *info, uint32_t bgid)
 static int create_fs_aux_info(struct fs_aux_info *aux_info,
 			      struct ext4_mkfs_info *info)
 {
+	if(info->block_size == 0)
+		return ENOMEM;
+
 	aux_info->first_data_block = (info->block_size > 1024) ? 0 : 1;
 	aux_info->len_blocks = info->len / info->block_size;
 	aux_info->inode_table_blocks = EXT4_DIV_ROUND_UP(info->inodes_per_group *

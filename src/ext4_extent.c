@@ -858,11 +858,15 @@ static int ext4_find_extent(struct ext4_inode_ref *inode_ref, ext4_lblk_t block,
 	struct ext4_extent_header *eh;
 	struct ext4_block bh = EXT4_BLOCK_ZERO();
 	ext4_fsblk_t buf_block = 0;
-	struct ext4_extent_path *path = *orig_path;
+	struct ext4_extent_path *path = NULL;
 	int32_t depth, ppos = 0;
 	int32_t i;
-	int ret;
+	int ret = EPERM;
 
+	if (orig_path == NULL)
+		goto err;
+
+	path = *orig_path;
 	eh = ext_inode_hdr(inode_ref->inode);
 	depth = ext_depth(inode_ref->inode);
 
