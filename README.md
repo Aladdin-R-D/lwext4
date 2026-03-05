@@ -12,11 +12,10 @@ The main goal of the lwext4 project is to provide ext2/3/4 filesystem for microc
 Lwext4 is an excellent choice for SD/MMC card, USB flash drive or any other wear
 leveled memory types. However it is not good for raw flash devices.
 
-Feel free to contact me:
-kostka.grzegorz@gmail.com
-
 Credits
 =====
+
+Thanks to the author of the original repository (https://github.com/gkostka/lwext4): [Grzegorz Kostka](https://github.com/gkostka)
 
 The most of the source code of lwext4 was taken from HelenOS:
 * http://helenos.org/
@@ -235,6 +234,10 @@ Build cortex-m4 library:
  cd build_cortex-m4
  make lwext4
 ```
+
+Contracts
+------------
+To report a security issue, please email open-source-dev@aladdin.ru
 
 License
 ------------
