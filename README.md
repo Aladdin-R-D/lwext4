@@ -235,7 +235,7 @@ Build cortex-m4 library:
  make lwext4
 ```
 
-Contracts
+Contacts
 ------------
 To report a security issue, please email open-source-dev@aladdin.ru
 
