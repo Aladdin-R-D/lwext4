@@ -1,8 +1,3 @@
-[![Join the chat at https://gitter.im/gkostka/lwext4](https://badges.gitter.im/gkostka/lwext4.svg)](https://gitter.im/gkostka/lwext4?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
-[![License (GPL v2.0)](https://img.shields.io/badge/license-GPL%20(v2.0)-blue.svg?style=flat-square)](http://opensource.org/licenses/GPL-2.0)
-[![Build Status](https://travis-ci.org/gkostka/lwext4.svg)](https://travis-ci.org/gkostka/lwext4)
-[![](http://img.shields.io/gratipay/user/gkostka.svg)](https://gratipay.com/gkostka/)
-
 ![lwext4](https://cloud.githubusercontent.com/assets/8606098/11697327/68306d88-9eb9-11e5-8807-81a2887f077e.png)
 
 About
@@ -17,11 +12,10 @@ The main goal of the lwext4 project is to provide ext2/3/4 filesystem for microc
 Lwext4 is an excellent choice for SD/MMC card, USB flash drive or any other wear
 leveled memory types. However it is not good for raw flash devices.
 
-Feel free to contact me:
-kostka.grzegorz@gmail.com
-
 Credits
 =====
+
+Thanks to the author of the original repository (https://github.com/gkostka/lwext4): [Grzegorz Kostka](https://github.com/gkostka)
 
 The most of the source code of lwext4 was taken from HelenOS:
 * http://helenos.org/
@@ -241,4 +235,11 @@ Build cortex-m4 library:
  make lwext4
 ```
 
+Contacts
+------------
+To report a security issue, please email open-source-dev@aladdin.ru
+
+License
+------------
+This software is available under GNU General Public License, version 2 which can be found in the [LICENSE](https://github.com/Aladdin-R-D/lwext4/blob/master/LICENSE)
 
