@@ -237,7 +237,7 @@ Build cortex-m4 library:
 
 Contacts
 ------------
-To report a security issue, please email open-source-dev@aladdin.ru
+To report a security issue, please email O.Source@aladdin.ru
 
 License
 ------------
