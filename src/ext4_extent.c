@@ -955,6 +955,9 @@ err:
 	ext4_free(path);
 	if (orig_path)
 		*orig_path = NULL;
+	/* Never report success after the path has been freed */
+	if (ret == EOK)
+		ret = EIO;
 	return ret;
 }
 
@@ -1475,10 +1478,15 @@ again:
 
 			ret = ext4_find_extent(
 			    inode_ref, to_le32(newext->first_block), ppath, 0);
+			/* old path may have been freed by ext4_find_extent */
+			path = *ppath;
 			if (ret != EOK)
 				goto out;
+			if (path == NULL) {
+				ret = EIO;
+				goto out;
+			}
 
-			path = *ppath;
 			/*
 			 * After growing the tree, there should be free space in
 			 * the only child node of the root.
@@ -1732,6 +1740,10 @@ int ext4_extent_remove_space(struct ext4_inode_ref *inode_ref, ext4_lblk_t from,
 	ret = ext4_find_extent(inode_ref, from, &path, 0);
 	if (ret != EOK)
 		goto out;
+	if (path == NULL) {
+		ret = EIO;
+		goto out;
+	}
 
 	if (!path[depth].extent) {
 		ret = EOK;
@@ -2051,7 +2063,9 @@ int ext4_extent_get_blocks(struct ext4_inode_ref *inode_ref, ext4_lblk_t iblock,
 
 	/* find extent for this block */
 	err = ext4_find_extent(inode_ref, iblock, &path, 0);
-	if (err != EOK) {
+	if (err != EOK || path == NULL) {
+		if (err == EOK)
+			err = EIO;
 		path = NULL;
 		goto out2;
 	}

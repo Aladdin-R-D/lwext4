@@ -145,7 +145,20 @@ bool ext4_sb_check(struct ext4_sblock *s)
 	if (ext4_get32(s, inodes_per_group) == 0)
 		return false;
 
+	/* block size must fit 1 KiB..64 KiB (also keeps the shift defined) */
+	if (ext4_get32(s, log_block_size) >= 32 ||
+	    (EXT4_MAX_BLOCK_SIZE >> ext4_get32(s, log_block_size)) <
+		EXT4_MIN_BLOCK_SIZE)
+		return false;
+
 	if (ext4_get16(s, inode_size) < 128)
+		return false;
+
+	/* inode size must be a power of 2 and must not exceed the block size */
+	if (ext4_get16(s, inode_size) & (ext4_get16(s, inode_size) - 1))
+		return false;
+
+	if (ext4_get16(s, inode_size) > ext4_sb_get_block_size(s))
 		return false;
 
 	if (ext4_get32(s, first_inode) < 11)
