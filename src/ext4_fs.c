@@ -265,18 +265,32 @@ static bool ext4_block_in_group(struct ext4_sblock *s, ext4_fsblk_t baddr,
 	return false;
 }
 
+/**@brief Determine whether the block is covered by the block bitmap
+ *        of the group starting at first_bg.
+ * @param first_bg first block of the group
+ * @param bmp_bits number of bits in the block bitmap
+ * @param baddr    block address
+ * @return true if the block has a bit in the bitmap
+ */
+static bool ext4_fs_blk_in_bmap(ext4_fsblk_t first_bg, uint32_t bmp_bits,
+				ext4_fsblk_t baddr)
+{
+	return baddr >= first_bg && baddr - first_bg < bmp_bits;
+}
+
 /**@brief   To avoid calling the atomic setbit hundreds or thousands of times, we only
  *          need to use it within a single byte (to ensure we get endianness right).
  *          We can use memset for the rest of the bitmap as there are no other users.
  */
-static void ext4_fs_mark_bitmap_end(int start_bit, int end_bit, void *bitmap)
+static void ext4_fs_mark_bitmap_end(uint32_t start_bit, uint32_t end_bit,
+				    void *bitmap)
 {
-	int i;
+	uint32_t i;
 
 	if (start_bit >= end_bit)
 		return;
 
-	for (i = start_bit; (unsigned)i < ((start_bit + 7) & ~7UL); i++)
+	for (i = start_bit; i < ((start_bit + 7) & ~7U); i++)
 		ext4_bmap_bit_set(bitmap, i);
 
 	if (i < end_bit)
@@ -297,6 +311,7 @@ static int ext4_fs_init_block_bitmap(struct ext4_block_group_ref *bg_ref)
 	uint32_t group_blocks;
 	uint16_t inode_size = ext4_get16(sb, inode_size);
 	uint32_t block_size = ext4_sb_get_block_size(sb);
+	uint32_t bmp_bits = block_size * 8;
 	uint32_t inodes_per_group = ext4_get32(sb, inodes_per_group);
 
 	ext4_fsblk_t i;
@@ -310,7 +325,42 @@ static int ext4_fs_init_block_bitmap(struct ext4_block_group_ref *bg_ref)
 	bool flex_bg = ext4_sb_feature_incom(sb, EXT4_FINCOM_FLEX_BG);
 	bool meta_bg = ext4_sb_feature_incom(sb, EXT4_FINCOM_META_BG);
 
-	uint32_t inode_table_bcnt = inodes_per_group * inode_size / block_size;
+	uint64_t inode_table_bcnt =
+	    (uint64_t)inodes_per_group * inode_size / block_size;
+
+	/* The block bitmap is read and written below, it must be a valid
+	 * block of the filesystem */
+	if (bmp_blk == 0 || bmp_blk >= ext4_sb_get_blocks_cnt(sb))
+		return EIO;
+
+	/* Without flex_bg the bitmaps must lie inside their own group */
+	if (!flex_bg && (!ext4_fs_blk_in_bmap(first_bg, bmp_bits, bmp_blk) ||
+			 !ext4_fs_blk_in_bmap(first_bg, bmp_bits, bmp_inode)))
+		return EIO;
+
+	/* Without flex_bg the inode table must lie inside its own group */
+	if (!flex_bg && (inode_table < first_bg || inode_table_bcnt > bmp_bits ||
+			 inode_table - first_bg > bmp_bits - inode_table_bcnt))
+		return EIO;
+
+	if (bg_ref->index == ext4_block_group_cnt(sb) - 1) {
+		/*
+		 * Even though mke2fs always initialize first and last group
+		 * if some other tool enabled the EXT4_BG_BLOCK_UNINIT we need
+		 * to make sure we calculate the right free blocks
+		 */
+
+		group_blocks = (uint32_t)(ext4_sb_get_blocks_cnt(sb) -
+					  ext4_get32(sb, first_data_block) -
+					  ext4_get32(sb, blocks_per_group) *
+					  (ext4_block_group_cnt(sb) - 1));
+	} else {
+		group_blocks = ext4_get32(sb, blocks_per_group);
+	}
+
+	/* The group can not have more blocks than its bitmap has bits */
+	if (group_blocks > bmp_bits)
+		return EIO;
 
 	struct ext4_block block_bitmap;
 	rc = ext4_trans_block_get_noread(bg_ref->fs->bdev, &block_bitmap, bmp_blk);
@@ -336,37 +386,32 @@ static int ext4_fs_init_block_bitmap(struct ext4_block_group_ref *bg_ref)
 	for (bit = 0; bit < bit_max; bit++)
 		ext4_bmap_bit_set(block_bitmap.data, bit);
 
-	if (bg_ref->index == ext4_block_group_cnt(sb) - 1) {
-		/*
-		 * Even though mke2fs always initialize first and last group
-		 * if some other tool enabled the EXT4_BG_BLOCK_UNINIT we need
-		 * to make sure we calculate the right free blocks
-		 */
-
-		group_blocks = (uint32_t)(ext4_sb_get_blocks_cnt(sb) -
-					  ext4_get32(sb, first_data_block) -
-					  ext4_get32(sb, blocks_per_group) *
-					  (ext4_block_group_cnt(sb) - 1));
-	} else {
-		group_blocks = ext4_get32(sb, blocks_per_group);
-	}
-
 	bool in_bg;
 	in_bg = ext4_block_in_group(sb, bmp_blk, bg_ref->index);
-	if (!flex_bg || in_bg)
+	if ((!flex_bg || in_bg) &&
+	    ext4_fs_blk_in_bmap(first_bg, bmp_bits, bmp_blk))
 		ext4_bmap_bit_set(block_bitmap.data,
 				  (uint32_t)(bmp_blk - first_bg));
 
 	in_bg = ext4_block_in_group(sb, bmp_inode, bg_ref->index);
-	if (!flex_bg || in_bg)
+	if ((!flex_bg || in_bg) &&
+	    ext4_fs_blk_in_bmap(first_bg, bmp_bits, bmp_inode))
 		ext4_bmap_bit_set(block_bitmap.data,
 				  (uint32_t)(bmp_inode - first_bg));
 
-        for (i = inode_table; i < inode_table + inode_table_bcnt; i++) {
-		in_bg = ext4_block_in_group(sb, i, bg_ref->index);
-		if (!flex_bg || in_bg)
-			ext4_bmap_bit_set(block_bitmap.data,
-					  (uint32_t)(i - first_bg));
+	/* Mark only the part of the inode table covered by the bitmap */
+	if (inode_table < first_bg + bmp_bits) {
+		ext4_fsblk_t itb_end = first_bg + bmp_bits;
+		if (inode_table_bcnt < itb_end - inode_table)
+			itb_end = inode_table + inode_table_bcnt;
+
+		i = inode_table > first_bg ? inode_table : first_bg;
+		for (; i < itb_end; i++) {
+			in_bg = ext4_block_in_group(sb, i, bg_ref->index);
+			if (!flex_bg || in_bg)
+				ext4_bmap_bit_set(block_bitmap.data,
+						  (uint32_t)(i - first_bg));
+		}
 	}
         /*
          * Also if the number of blocks within the group is

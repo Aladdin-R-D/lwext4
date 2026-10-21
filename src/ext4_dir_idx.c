@@ -300,6 +300,11 @@ static bool ext4_dir_dx_csum_verify(struct ext4_inode_ref *inode_ref,
 			/* There is no space to hold the checksum */
 			return true;
 		}
+		/* count must not exceed limit, the checksummed area would go
+		 * beyond the dx entries otherwise */
+		if (cnt > limit)
+			return false;
+
 		t = (void *)(((struct ext4_dir_idx_entry *)climit) + limit);
 
 		uint32_t c;
@@ -333,6 +338,8 @@ static void ext4_dir_set_dx_csum(struct ext4_inode_ref *inode_ref,
 			/* There is no space to hold the checksum */
 			return;
 		}
+		if (count > limit)
+			return;
 
 		t = (void *)(((struct ext4_dir_idx_entry *)climit) + limit);
 		t->checksum = to_le32(ext4_dir_dx_checksum(inode_ref, dirent,
